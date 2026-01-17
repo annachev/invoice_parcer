@@ -349,8 +349,32 @@ class PatternFallbackStrategy(BaseStrategy):
     """
 
     def can_handle(self, text: str, lines: List[str]) -> bool:
-        """Always returns True - this is the fallback strategy"""
-        return True
+        """
+        Only use fallback if no other strategy patterns detected.
+
+        Returns False if text contains patterns that other strategies can handle better.
+        This prevents fallback from running unnecessarily.
+        """
+        # Check for TwoColumnStrategy patterns
+        has_column_structure = (
+            'From:' in text or 'To:' in text or
+            'Bill from:' in text or 'Bill to:' in text
+        )
+
+        # Check for SingleColumnLabelStrategy patterns
+        has_label_structure = (
+            'Sender:' in text or 'Recipient:' in text or
+            'Absender:' in text or 'Empfänger:' in text
+        )
+
+        # Check for CompanySpecificStrategy patterns
+        has_company_specific = (
+            'Deutsche Bahn' in text or
+            'DB Vertrieb' in text
+        )
+
+        # Only use fallback if no other strategy can handle it
+        return not (has_column_structure or has_label_structure or has_company_specific)
 
     def parse(self, text: str, lines: List[str]) -> Dict[str, str]:
         """Parse using generic patterns only"""

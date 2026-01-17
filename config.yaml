@@ -60,6 +60,41 @@ threading:
   # GUI update delay in milliseconds
   update_delay_ms: 50
 
+# Machine Learning settings
+ml:
+  # Enable/disable ML-enhanced extraction
+  enabled: true  # Set to true to enable ML features
+
+  # NER (Named Entity Recognition) settings
+  ner:
+    # spaCy model to use: en_core_web_sm (small, fast), en_core_web_md, en_core_web_lg
+    model: "en_core_web_sm"
+
+    # Confidence threshold for using NER results (0.0 - 1.0)
+    confidence_threshold: 0.6
+
+  # Layout classification settings
+  layout:
+    # Enable layout-based strategy optimization
+    enabled: true  # Set to true to use layout classifier
+
+    # Path to trained sklearn model (optional, uses rule-based if not provided)
+    model_path: null  # e.g., "src/invoice_processor/ml/models/layout_classifier.pkl"
+
+    # Use layout prediction to reorder strategies
+    optimize_strategy_order: true
+
+  # Ensemble mode settings
+  ensemble:
+    # Use ensemble mode (combine regex + ML)
+    enabled: true
+
+    # Prefer regex results when both available and confident
+    prefer_regex: true
+
+    # Minimum confidence to accept ML results
+    ml_min_confidence: 0.5
+
 # Development settings
 development:
   # Enable debug mode

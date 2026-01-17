@@ -245,6 +245,173 @@ class PatternLibrary:
         """Check if line contains a country name"""
         return any(country in line for country in PatternLibrary.COUNTRIES)
 
+    # ========== VALIDATION FUNCTIONS ==========
+
+    @staticmethod
+    def validate_iban(iban: str) -> bool:
+        """
+        Validate IBAN using mod-97 checksum algorithm.
+
+        Args:
+            iban: IBAN string (with or without spaces)
+
+        Returns:
+            True if IBAN is valid, False otherwise
+        """
+        if not iban:
+            return False
+
+        # Remove spaces and convert to uppercase
+        iban = iban.replace(' ', '').replace('-', '').upper()
+
+        # IBAN must be 15-34 characters
+        if len(iban) < 15 or len(iban) > 34:
+            return False
+
+        # First two characters must be letters (country code)
+        if not iban[:2].isalpha():
+            return False
+
+        # Next two characters must be digits (check digits)
+        if not iban[2:4].isdigit():
+            return False
+
+        # Move first 4 characters to end
+        rearranged = iban[4:] + iban[:4]
+
+        # Convert letters to numbers (A=10, B=11, ..., Z=35)
+        try:
+            numeric = ''.join(
+                str(int(c, 36)) if c.isalpha() else c
+                for c in rearranged
+            )
+            # Validate checksum: mod 97 must equal 1
+            return int(numeric) % 97 == 1
+        except (ValueError, OverflowError):
+            return False
+
+    @staticmethod
+    def validate_bic(bic: str) -> bool:
+        """
+        Validate BIC/SWIFT code format.
+
+        Args:
+            bic: BIC/SWIFT code
+
+        Returns:
+            True if BIC format is valid, False otherwise
+        """
+        if not bic:
+            return False
+
+        # Remove spaces
+        bic = bic.replace(' ', '').upper()
+
+        # BIC must be 8 or 11 characters
+        if len(bic) not in [8, 11]:
+            return False
+
+        # Format: AAAA BB CC DDD
+        # AAAA (4 chars): Bank code (letters only)
+        # BB (2 chars): Country code (letters only)
+        # CC (2 chars): Location code (letters or digits)
+        # DDD (3 chars, optional): Branch code (letters or digits)
+
+        # Check bank code (first 4 characters - letters only)
+        if not bic[:4].isalpha():
+            return False
+
+        # Check country code (characters 5-6 - letters only)
+        if not bic[4:6].isalpha():
+            return False
+
+        # Check location code (characters 7-8 - alphanumeric)
+        if not bic[6:8].isalnum():
+            return False
+
+        # If 11 characters, check branch code (alphanumeric)
+        if len(bic) == 11 and not bic[8:11].isalnum():
+            return False
+
+        return True
+
+    @staticmethod
+    def normalize_amount(amount_str: str, currency: str = None, language: str = 'en') -> Dict[str, any]:
+        """
+        Normalize amount string to float with proper locale handling.
+
+        Args:
+            amount_str: Raw amount string (e.g., "1.234,56" or "1,234.56")
+            currency: Currency code if known (EUR, USD, etc.)
+            language: Language hint ('en' or 'de')
+
+        Returns:
+            Dict with:
+                - amount: float value
+                - raw_amount: original string
+                - currency: currency code
+                - locale: detected locale ('en_US' or 'de_DE')
+        """
+        if not amount_str or amount_str == "PARSING FAILED":
+            return {
+                "amount": None,
+                "raw_amount": amount_str,
+                "currency": currency,
+                "locale": None,
+                "valid": False
+            }
+
+        # Remove currency symbols
+        clean_amount = amount_str.replace('€', '').replace('$', '').replace('£', '').replace('CHF', '').strip()
+
+        # Detect format based on multiple indicators
+        has_comma_decimal = ',' in clean_amount and clean_amount.rfind(',') > clean_amount.rfind('.')
+        has_dot_decimal = '.' in clean_amount and clean_amount.rfind('.') > clean_amount.rfind(',')
+
+        # Use language hint if format is ambiguous
+        if currency == "EUR" or language == 'de':
+            # German format: 1.234,56
+            locale = 'de_DE'
+            if has_comma_decimal or (',' in clean_amount and '.' not in clean_amount):
+                # Remove thousand separators (.) and replace decimal comma
+                normalized = clean_amount.replace('.', '').replace(',', '.')
+            else:
+                # Might be US format or just decimal
+                normalized = clean_amount.replace(',', '')
+        else:
+            # US format: 1,234.56
+            locale = 'en_US'
+            if has_dot_decimal or ('.' in clean_amount and ',' not in clean_amount):
+                # Remove thousand separators (,)
+                normalized = clean_amount.replace(',', '')
+            else:
+                # Might be German format or just decimal
+                normalized = clean_amount.replace(',', '.')
+
+        # Try to convert to float
+        try:
+            amount_float = float(normalized)
+
+            # Validate amount is reasonable (> 0)
+            if amount_float <= 0:
+                raise ValueError("Amount must be positive")
+
+            return {
+                "amount": amount_float,
+                "raw_amount": amount_str,
+                "currency": currency,
+                "locale": locale,
+                "valid": True
+            }
+        except (ValueError, AttributeError):
+            return {
+                "amount": None,
+                "raw_amount": amount_str,
+                "currency": currency,
+                "locale": None,
+                "valid": False
+            }
+
 
 if __name__ == "__main__":
     # Test language detection
@@ -265,3 +432,29 @@ if __name__ == "__main__":
     text2 = "Berlin 10319, Frankfurt 60327, New York 10001"
     postal_codes = PatternLibrary.extract_postal_codes(text2)
     print(f"\nPostal codes: {postal_codes}")
+
+    # Test IBAN validation
+    print("\n=== IBAN Validation ===")
+    valid_iban = "DE89 3704 0044 0532 0130 00"
+    invalid_iban = "DE89 3704 0044 0532 0130 99"
+    print(f"Valid IBAN '{valid_iban}': {PatternLibrary.validate_iban(valid_iban)}")
+    print(f"Invalid IBAN '{invalid_iban}': {PatternLibrary.validate_iban(invalid_iban)}")
+
+    # Test BIC validation
+    print("\n=== BIC Validation ===")
+    valid_bic = "DEUTDEFF"
+    invalid_bic = "DEUT123"
+    print(f"Valid BIC '{valid_bic}': {PatternLibrary.validate_bic(valid_bic)}")
+    print(f"Invalid BIC '{invalid_bic}': {PatternLibrary.validate_bic(invalid_bic)}")
+
+    # Test amount normalization
+    print("\n=== Amount Normalization ===")
+    test_amounts = [
+        ("1.234,56", "EUR", "de"),  # German format
+        ("1,234.56", "USD", "en"),  # US format
+        ("21.42", "EUR", "en"),     # Simple decimal
+        ("9,00", "EUR", "de"),      # German decimal
+    ]
+    for amount_str, currency, lang in test_amounts:
+        result = PatternLibrary.normalize_amount(amount_str, currency, lang)
+        print(f"{amount_str} ({currency}, {lang}): {result['amount']} - valid: {result['valid']}")

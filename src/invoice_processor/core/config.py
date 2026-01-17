@@ -96,6 +96,46 @@ class DevelopmentConfig:
 
 
 @dataclass
+class NERConfig:
+    """NER (Named Entity Recognition) configuration"""
+    model: str = "en_core_web_sm"
+    confidence_threshold: float = 0.6
+
+
+@dataclass
+class LayoutConfig:
+    """Layout classification configuration"""
+    enabled: bool = False
+    model_path: Optional[str] = None
+    optimize_strategy_order: bool = True
+
+
+@dataclass
+class EnsembleConfig:
+    """Ensemble mode configuration"""
+    enabled: bool = True
+    prefer_regex: bool = True
+    ml_min_confidence: float = 0.5
+
+
+@dataclass
+class MLConfig:
+    """Machine Learning configuration"""
+    enabled: bool = False
+    ner: NERConfig = None
+    layout: LayoutConfig = None
+    ensemble: EnsembleConfig = None
+
+    def __post_init__(self):
+        if self.ner is None:
+            self.ner = NERConfig()
+        if self.layout is None:
+            self.layout = LayoutConfig()
+        if self.ensemble is None:
+            self.ensemble = EnsembleConfig()
+
+
+@dataclass
 class Config:
     """Main application configuration"""
     window: WindowConfig
@@ -105,6 +145,7 @@ class Config:
     parser: ParserConfig
     threading: ThreadingConfig
     development: DevelopmentConfig
+    ml: MLConfig
 
     @classmethod
     def from_file(cls, config_path: str = "config.yaml") -> 'Config':
@@ -137,6 +178,7 @@ class Config:
                 return cls.default()
 
             # Parse each section
+            ml_data = data.get('ml', {})
             return cls(
                 window=WindowConfig(**data.get('app', {}).get('window', {})),
                 folders=FolderConfig(**data.get('folders', {})),
@@ -144,7 +186,13 @@ class Config:
                 logging=LoggingConfig(**data.get('logging', {})),
                 parser=ParserConfig(**data.get('parser', {})),
                 threading=ThreadingConfig(**data.get('threading', {})),
-                development=DevelopmentConfig(**data.get('development', {}))
+                development=DevelopmentConfig(**data.get('development', {})),
+                ml=MLConfig(
+                    enabled=ml_data.get('enabled', False),
+                    ner=NERConfig(**ml_data.get('ner', {})),
+                    layout=LayoutConfig(**ml_data.get('layout', {})),
+                    ensemble=EnsembleConfig(**ml_data.get('ensemble', {}))
+                )
             )
 
         except yaml.YAMLError as e:
@@ -171,7 +219,8 @@ class Config:
             logging=LoggingConfig(),
             parser=ParserConfig(),
             threading=ThreadingConfig(),
-            development=DevelopmentConfig()
+            development=DevelopmentConfig(),
+            ml=MLConfig()
         )
 
     def validate(self):

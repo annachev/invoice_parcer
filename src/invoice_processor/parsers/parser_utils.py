@@ -54,6 +54,44 @@ def extract_email(line: str) -> Optional[str]:
     return None
 
 
+def is_valid_email(email: str) -> bool:
+    """
+    Validate email format.
+
+    Args:
+        email: Email string to validate
+
+    Returns:
+        True if email has valid format, False otherwise
+    """
+    if not email or email == PARSING_FAILED:
+        return False
+
+    # Basic validation: has @ and domain with dot
+    if '@' not in email:
+        return False
+
+    parts = email.split('@')
+    if len(parts) != 2:
+        return False
+
+    local, domain = parts
+    # Local part should be non-empty
+    if not local or len(local) < 1:
+        return False
+
+    # Domain should have at least one dot
+    if '.' not in domain:
+        return False
+
+    # Domain should have non-empty parts
+    domain_parts = domain.split('.')
+    if any(len(part) == 0 for part in domain_parts):
+        return False
+
+    return True
+
+
 def extract_emails_from_text(text: str) -> tuple:
     """
     Extract sender and recipient emails from text using heuristics.
@@ -193,13 +231,12 @@ def extract_amount(text: str, patterns: List[str] = None) -> Optional[str]:
 
 def calculate_confidence(result: Dict[str, str]) -> float:
     """
-    Calculate confidence score for parsing result based on fields extracted.
+    Calculate confidence score for parsing result with validation-based scoring.
 
-    Scoring:
-    - Core fields (sender, recipient, amount, currency): 2.0 points each
-    - Address fields (sender_address, recipient_address): 1.0 point each
-    - Email fields (sender_email, recipient_email): 1.0 point each
-    - Banking fields (iban/bic, bank_name, payment_address): 0.5 points each
+    Scoring (weighted by importance and validation):
+    - Critical fields (50%): sender, recipient, amount (with validation)
+    - Banking fields (30%): IBAN, BIC (with checksum validation)
+    - Supporting fields (20%): currency, emails, addresses
 
     Args:
         result: Parsing result dictionary
@@ -208,38 +245,74 @@ def calculate_confidence(result: Dict[str, str]) -> float:
         Confidence score from 0.0 to 1.0
     """
     score = 0.0
-    max_score = 12.0
 
-    # Core fields (highest weight)
-    if result.get('sender') != PARSING_FAILED and result.get('sender'):
-        score += 2.0
-    if result.get('recipient') != PARSING_FAILED and result.get('recipient'):
-        score += 2.0
-    if result.get('amount') != PARSING_FAILED and result.get('amount'):
-        score += 2.0
+    # Critical fields (50% = 0.5)
+    # Sender (20% if valid email or non-empty)
+    sender = result.get('sender', PARSING_FAILED)
+    if sender != PARSING_FAILED and sender:
+        if '@' in sender and is_valid_email(sender):
+            score += 0.20  # Valid email
+        elif len(sender) > 3:
+            score += 0.15  # Non-empty company name
+
+    # Recipient (20% if valid email or non-empty)
+    recipient = result.get('recipient', PARSING_FAILED)
+    if recipient != PARSING_FAILED and recipient:
+        if '@' in recipient and is_valid_email(recipient):
+            score += 0.20  # Valid email
+        elif len(recipient) > 3:
+            score += 0.15  # Non-empty company name
+
+    # Amount (10% if parseable as number)
+    amount = result.get('amount', PARSING_FAILED)
+    if amount != PARSING_FAILED and amount:
+        try:
+            # Try to parse as float (handles both "1.234,56" and "1,234.56")
+            cleaned = amount.replace('.', '').replace(',', '.')
+            if float(cleaned) > 0:
+                score += 0.10
+        except (ValueError, AttributeError):
+            pass  # Invalid amount, no points
+
+    # Banking fields (30% = 0.3)
+    # IBAN (15% if valid checksum)
+    iban = result.get('iban', PARSING_FAILED)
+    if iban != PARSING_FAILED and iban:
+        if PatternLibrary.validate_iban(iban):
+            score += 0.15
+        else:
+            score += 0.05  # Pattern match but invalid checksum
+
+    # BIC (15% if valid format)
+    bic = result.get('bic', PARSING_FAILED)
+    if bic != PARSING_FAILED and bic:
+        if PatternLibrary.validate_bic(bic):
+            score += 0.15
+        else:
+            score += 0.05  # Pattern match but invalid format
+
+    # Supporting fields (20% = 0.2)
+    # Currency (5%)
     if result.get('currency') != PARSING_FAILED and result.get('currency'):
-        score += 1.0
+        score += 0.05
 
-    # Address fields (medium weight)
-    if result.get('sender_address') != PARSING_FAILED and result.get('sender_address'):
-        score += 1.0
-    if result.get('recipient_address') != PARSING_FAILED and result.get('recipient_address'):
-        score += 1.0
-
-    # Email fields (medium weight)
+    # Emails (5% each)
     if result.get('sender_email') != PARSING_FAILED and result.get('sender_email'):
-        score += 1.0
+        if is_valid_email(result.get('sender_email')):
+            score += 0.05
     if result.get('recipient_email') != PARSING_FAILED and result.get('recipient_email'):
-        score += 1.0
+        if is_valid_email(result.get('recipient_email')):
+            score += 0.05
 
-    # Banking fields (lower weight - not all invoices have banking info)
-    banking_fields = ['iban', 'bic', 'bank_name', 'payment_address']
-    banking_found = sum(1 for field in banking_fields
-                       if result.get(field) != PARSING_FAILED and result.get(field))
-    if banking_found > 0:
-        score += 0.5  # 0.5 points if any banking info found
+    # Addresses (5% total if at least one exists)
+    has_address = (
+        (result.get('sender_address') != PARSING_FAILED and result.get('sender_address')) or
+        (result.get('recipient_address') != PARSING_FAILED and result.get('recipient_address'))
+    )
+    if has_address:
+        score += 0.05
 
-    return min(score / max_score, 1.0)
+    return min(score, 1.0)
 
 
 def create_default_result() -> Dict[str, str]:
@@ -312,15 +385,23 @@ def extract_banking_info(text: str, lines: List[str]) -> Dict[str, str]:
         "payment_address": PARSING_FAILED
     }
 
-    # IBAN
+    # IBAN (with validation)
     iban_match = re.search(PatternLibrary.IBAN_PATTERN, text, re.IGNORECASE)
     if iban_match:
-        banking["iban"] = iban_match.group(1).replace(' ', '')
+        iban_candidate = iban_match.group(1).replace(' ', '')
+        # Validate IBAN checksum before accepting
+        if PatternLibrary.validate_iban(iban_candidate):
+            banking["iban"] = iban_candidate
+        # If validation fails, keep PARSING_FAILED
 
-    # BIC
+    # BIC (with validation)
     bic_match = re.search(PatternLibrary.BIC_PATTERN, text, re.IGNORECASE)
     if bic_match:
-        banking["bic"] = bic_match.group(1)
+        bic_candidate = bic_match.group(1)
+        # Validate BIC format before accepting
+        if PatternLibrary.validate_bic(bic_candidate):
+            banking["bic"] = bic_candidate
+        # If validation fails, keep PARSING_FAILED
 
     # Bank name
     for pattern in PatternLibrary.BANK_NAME_PATTERNS:
