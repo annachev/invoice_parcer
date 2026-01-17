@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(pip install:*)",
+      "Bash(python3:*)",
+      "Bash(chmod:*)",
+      "Bash(cd:*)",
+      "Bash(tree:*)",
+      "Bash(timeout 10 python3:*)",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(pip3 install:*)",
+      "Bash(cat:*)"
+    ]
+  }
+}

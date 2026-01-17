@@ -1,0 +1,69 @@
+# Invoice Processor Configuration
+# This file contains all configurable settings for the application
+
+# Application settings
+app:
+  name: "Invoice Processor"
+  version: "2.0.0"
+
+  # GUI window settings
+  window:
+    width: 1200
+    height: 600
+    title: "Invoice Processor"
+
+# Folder paths (relative to the application directory)
+folders:
+  pending: "invoice_processor/invoices/pending"
+  processed: "invoice_processor/invoices/processed"
+
+# Background scanner settings
+scanner:
+  # Interval in seconds between automatic scans for new invoices
+  interval_seconds: 300  # 5 minutes
+
+  # Enable/disable background scanning
+  enabled: true
+
+# Logging configuration
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: "INFO"
+
+  # Log file path (set to null to disable file logging)
+  file: "invoice_processor/invoice_processor.log"
+
+  # Enable/disable console logging
+  console: true
+
+  # Log format
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+
+# Parser settings
+parser:
+  # Confidence threshold for early exit (0.0 - 1.0)
+  confidence_threshold: 0.9
+
+  # Enable/disable specific strategies
+  strategies:
+    two_column: true
+    single_column: true
+    company_specific: true
+    pattern_fallback: true
+
+# Threading settings
+threading:
+  # Maximum number of concurrent PDF processing threads
+  max_workers: 4
+
+  # GUI update delay in milliseconds
+  update_delay_ms: 50
+
+# Development settings
+development:
+  # Enable debug mode
+  debug: false
+
+  # Show detailed error messages in GUI
+  verbose_errors: false
