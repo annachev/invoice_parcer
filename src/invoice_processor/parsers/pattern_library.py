@@ -13,7 +13,7 @@ class PatternLibrary:
 
     # ========== LANGUAGE-SPECIFIC LABEL PATTERNS ==========
 
-    # Sender label patterns (English and German)
+    # Sender label patterns (English and German) - FLEXIBLE PATTERNS
     # Note: (.+) can be empty if label is on its own line
     SENDER_LABELS = {
         'en': [
@@ -21,15 +21,26 @@ class PatternLibrary:
             r'^\s*Invoice\s+from:\s*(.*)',
             r'^\s*Sender:\s*(.*)',
             r'^\s*Bill\s+from:\s*(.*)',
+            r'^\s*Billed\s+by:\s*(.*)',
+            r'^\s*Issued\s+by:\s*(.*)',
+            r'^\s*Provider:\s*(.*)',
+            r'^\s*Vendor:\s*(.*)',
+            r'^\s*Supplier:\s*(.*)',
+            r'^\s*Contractor:\s*(.*)',
+            r'^\s*Service\s+Provider:\s*(.*)',
+            r'^\s*Seller:\s*(.*)',
         ],
         'de': [
             r'^\s*Absender:\s*(.*)',
             r'^\s*Von:\s*(.*)',
             r'^\s*Rechnungssteller:\s*(.*)',
+            r'^\s*Lieferant:\s*(.*)',
+            r'^\s*Anbieter:\s*(.*)',
+            r'^\s*Verkäufer:\s*(.*)',
         ]
     }
 
-    # Recipient label patterns (English and German)
+    # Recipient label patterns (English and German) - FLEXIBLE PATTERNS
     # Note: (.*) can be empty if label is on its own line
     RECIPIENT_LABELS = {
         'en': [
@@ -38,12 +49,21 @@ class PatternLibrary:
             r'^\s*Recipient:\s*(.*)',
             r'^\s*Invoice\s+to:\s*(.*)',
             r'^\s*Customer:\s*(.*)',
+            r'^\s*Billed\s+to:\s*(.*)',
+            r'^\s*Client:\s*(.*)',
+            r'^\s*Purchaser:\s*(.*)',
+            r'^\s*Buyer:\s*(.*)',
+            r'^\s*Attention:\s*(.*)',
+            r'^\s*Attn:\s*(.*)',
+            r'^\s*For:\s*(.*)',
         ],
         'de': [
             r'^\s*Rechnungsempfänger:\s*(.*)',
             r'^\s*An:\s*(.*)',
             r'^\s*Empfänger:\s*(.*)',
             r'^\s*Kunde:\s*(.*)',
+            r'^\s*Käufer:\s*(.*)',
+            r'^\s*Auftraggeber:\s*(.*)',
         ]
     }
 
@@ -52,12 +72,61 @@ class PatternLibrary:
     # Email pattern
     EMAIL_PATTERN = r'[\w\.-]+@[\w\.-]+\.\w+'
 
-    # IBAN pattern (supports spaces, will be removed during extraction)
-    IBAN_PATTERN = r'IBAN[:\s]*([A-Z]{2}\s?\d{2}(?:\s?\d{4}){4}(?:\s?\d{0,2})?)'
+    # IBAN patterns (labeled and unlabeled for flexibility)
+    IBAN_PATTERN_LABELED = r'IBAN[:\s]*([A-Z]{2}\s?\d{2}(?:\s?\d{4}){4}(?:\s?\d{0,2})?)'
+    IBAN_PATTERN_UNLABELED = r'\b([A-Z]{2}\d{2}(?:\s?\d{4}){4}(?:\s?\d{0,2})?)\b'
+    # Legacy pattern for backwards compatibility
+    IBAN_PATTERN = IBAN_PATTERN_LABELED
 
     # BIC/SWIFT pattern (must have BIC: label to avoid false positives)
     BIC_PATTERN = r'BIC[:\s]*([A-Z]{6}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)'
     SWIFT_PATTERN = r'SWIFT[:\s]*([A-Z]{6}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)'
+
+    # ========== US BANKING PATTERNS ==========
+
+    # US ABA/ACH Routing Numbers (9 digits with checksum validation)
+    ABA_ROUTING_PATTERNS = [
+        r'(?:ABA|Routing)\s+(?:Number|No\.?|#)[:\s]*(\d{9})',
+        r'(?:ACH|Wire)\s+Routing[:\s]*(\d{9})',
+        r'RTN[:\s]*(\d{9})',
+    ]
+
+    # US Account Numbers (typically 6-17 digits)
+    US_ACCOUNT_PATTERNS = [
+        r'(?:Account\s+(?:Number|No\.?))[:\s]*(\d{6,17})',
+        r'Acct\.?\s*#?[:\s]*(\d{6,17})',
+    ]
+
+    # ========== UK BANKING PATTERNS ==========
+
+    # UK Sort Code (6 digits, format: XX-XX-XX or XXXXXX)
+    SORT_CODE_PATTERNS = [
+        r'(?:Sort\s+Code)[:\s]*(\d{2}[-\s]?\d{2}[-\s]?\d{2})',
+        r'SC[:\s]*(\d{2}[-\s]?\d{2}[-\s]?\d{2})',
+    ]
+
+    # UK Account Numbers (8 digits)
+    UK_ACCOUNT_PATTERNS = [
+        r'(?:Account\s+(?:Number|No\.?))[:\s]*(\d{8})',
+        r'A/C[:\s]*(\d{8})',
+    ]
+
+    # ========== GENERIC ACCOUNT NUMBER PATTERNS ==========
+
+    # Generic account number patterns (work for multiple countries)
+    ACCOUNT_NUMBER_PATTERNS = [
+        r'(?:Account\s+(?:Number|No\.?|#)|Acct\.?\s+(?:No\.?|#))[:\s]*([A-Z0-9\-\s]{6,34})',
+        r'(?:Banking\s+Account|Bank\s+Account)[:\s]*([A-Z0-9\-\s]{6,34})',
+        r'A/C[:\s]*([A-Z0-9\-\s]{6,34})',
+    ]
+
+    # SEPA country codes (for payment method detection)
+    SEPA_COUNTRIES = [
+        'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR',
+        'DE', 'GR', 'HU', 'IS', 'IE', 'IT', 'LV', 'LI', 'LT', 'LU',
+        'MT', 'MC', 'NL', 'NO', 'PL', 'PT', 'RO', 'SM', 'SK', 'SI',
+        'ES', 'SE', 'CH', 'GB', 'VA', 'AD'  # Note: GB still in SEPA as of 2026
+    ]
 
     # Bank name patterns (generic, not bank-specific)
     BANK_NAME_PATTERNS = [
@@ -71,22 +140,179 @@ class PatternLibrary:
     # Payment address section header
     PAYMENT_ADDRESS_PATTERN = r'PAYMENT\s+ADDRESS'
 
-    # ========== AMOUNT PATTERNS ==========
+    # ========== AMOUNT PATTERNS - FLEXIBLE PATTERNS ==========
 
     AMOUNT_PATTERNS = [
-        # English patterns (with thousand separators)
+        # English patterns (with thousand separators) - EXPANDED
         r'Total\s+Amount[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
         r'Amount\s+(?:Due|Invoice|Total)[:\s]+([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
         r'Invoice\s+Amount[:\s]+([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Total\s+Due[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Balance\s+Due[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Amount\s+Payable[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Grand\s+Total[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Sum[:\s]+([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Payment\s+Amount[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Net\s+Amount[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Gross\s+Amount[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Final\s+Amount[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
         r'€\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s+(?:due|total)',
         r'\$\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
         r'£\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
 
-        # German patterns (with thousand separators)
+        # German patterns (with thousand separators) - EXPANDED
         r'Gesamtbetrag[:\s]+(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
         r'Rechnungsbetrag[:\s]+(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
         r'Betrag[:\s]+(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Endbetrag[:\s]+(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Summe[:\s]+(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Nettobetrag[:\s]+(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Bruttobetrag[:\s]+(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
         r'gross\s+amount\s+(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+    ]
+
+    # ========== INVOICE NUMBER PATTERNS - NEW FIELD ==========
+
+    INVOICE_NUMBER_PATTERNS = [
+        # English patterns
+        r'Invoice\s+(?:Number|No\.?|#)[:\s]*([A-Z0-9\-/]+)',
+        r'Invoice\s+ID[:\s]*([A-Z0-9\-/]+)',
+        r'Reference[:\s]*([A-Z0-9\-/]+)',
+        r'Ref\.?[:\s]*([A-Z0-9\-/]+)',
+        r'Document\s+(?:Number|No\.?|#)[:\s]*([A-Z0-9\-/]+)',
+        r'Bill\s+(?:Number|No\.?|#)[:\s]*([A-Z0-9\-/]+)',
+        r'Transaction\s+ID[:\s]*([A-Z0-9\-/]+)',
+        r'Order\s+(?:Number|No\.?|#)[:\s]*([A-Z0-9\-/]+)',
+        r'Confirmation\s+(?:Number|No\.?|#)[:\s]*([A-Z0-9\-/]+)',
+
+        # German patterns
+        r'Rechnungsnummer[:\s]*([A-Z0-9\-/]+)',
+        r'Rechnung\s+Nr\.?[:\s]*([A-Z0-9\-/]+)',
+        r'Beleg(?:nummer)?[:\s]*([A-Z0-9\-/]+)',
+        r'Dokumentennummer[:\s]*([A-Z0-9\-/]+)',
+    ]
+
+    # ========== DATE PATTERNS - NEW FIELDS ==========
+
+    # Invoice date patterns
+    INVOICE_DATE_PATTERNS = [
+        # English patterns - ISO format (YYYY-MM-DD)
+        r'Invoice\s+Date[:\s]*(\d{4}[-/]\d{2}[-/]\d{2})',
+        r'Date[:\s]*(\d{4}[-/]\d{2}[-/]\d{2})',
+        r'Issued[:\s]*(\d{4}[-/]\d{2}[-/]\d{2})',
+        r'Issued\s+on[:\s]*(\d{4}[-/]\d{2}[-/]\d{2})',
+        r'Date\s+of\s+Issue[:\s]*(\d{4}[-/]\d{2}[-/]\d{2})',
+        r'Bill\s+Date[:\s]*(\d{4}[-/]\d{2}[-/]\d{2})',
+
+        # English patterns - US format (MM/DD/YYYY)
+        r'Invoice\s+Date[:\s]*(\d{2}[-/]\d{2}[-/]\d{4})',
+        r'Date[:\s]*(\d{2}[-/]\d{2}[-/]\d{4})',
+        r'Issued[:\s]*(\d{2}[-/]\d{2}[-/]\d{4})',
+        r'Issued\s+on[:\s]*(\d{2}[-/]\d{2}[-/]\d{4})',
+
+        # English patterns - EU format (DD.MM.YYYY or DD/MM/YYYY)
+        r'Invoice\s+Date[:\s]*(\d{2}[./]\d{2}[./]\d{4})',
+        r'Date[:\s]*(\d{2}[./]\d{2}[./]\d{4})',
+        r'Issued[:\s]*(\d{2}[./]\d{2}[./]\d{4})',
+        r'Date\s+of\s+Issue[:\s]*(\d{2}[./]\d{2}[./]\d{4})',
+        r'Bill\s+Date[:\s]*(\d{2}[./]\d{2}[./]\d{4})',
+
+        # German patterns
+        r'Rechnungsdatum[:\s]*(\d{2}\.\d{2}\.\d{4})',
+        r'Datum[:\s]*(\d{2}\.\d{2}\.\d{4})',
+        r'Ausgestellt\s+am[:\s]*(\d{2}\.\d{2}\.\d{4})',
+    ]
+
+    # Due date patterns
+    DUE_DATE_PATTERNS = [
+        # English patterns - ISO format
+        r'Due\s+Date[:\s]*(\d{4}[-/]\d{2}[-/]\d{2})',
+        r'Payment\s+Due[:\s]*(\d{4}[-/]\d{2}[-/]\d{2})',
+        r'Pay\s+by[:\s]*(\d{4}[-/]\d{2}[-/]\d{2})',
+        r'Payable\s+by[:\s]*(\d{4}[-/]\d{2}[-/]\d{2})',
+        r'Due\s+on[:\s]*(\d{4}[-/]\d{2}[-/]\d{2})',
+        r'Payment\s+Date[:\s]*(\d{4}[-/]\d{2}[-/]\d{2})',
+
+        # English patterns - US format
+        r'Due\s+Date[:\s]*(\d{2}[-/]\d{2}[-/]\d{4})',
+        r'Payment\s+Due[:\s]*(\d{2}[-/]\d{2}[-/]\d{4})',
+        r'Pay\s+by[:\s]*(\d{2}[-/]\d{2}[-/]\d{4})',
+
+        # English patterns - EU format
+        r'Due\s+Date[:\s]*(\d{2}[./]\d{2}[./]\d{4})',
+        r'Payment\s+Due[:\s]*(\d{2}[./]\d{2}[./]\d{4})',
+        r'Pay\s+by[:\s]*(\d{2}[./]\d{2}[./]\d{4})',
+        r'Payable\s+by[:\s]*(\d{2}[./]\d{2}[./]\d{4})',
+        r'Due\s+on[:\s]*(\d{2}[./]\d{2}[./]\d{4})',
+
+        # German patterns
+        r'Fälligkeitsdatum[:\s]*(\d{2}\.\d{2}\.\d{4})',
+        r'Zahlbar\s+bis[:\s]*(\d{2}\.\d{2}\.\d{4})',
+        r'Fällig\s+am[:\s]*(\d{2}\.\d{2}\.\d{4})',
+    ]
+
+    # ========== TAX/VAT PATTERNS - NEW FIELDS ==========
+
+    # Tax/VAT amount patterns
+    TAX_AMOUNT_PATTERNS = [
+        # English patterns
+        r'VAT[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Tax[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Sales\s+Tax[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'GST[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Tax\s+Amount[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'VAT\s+Amount[:\s]*([€$£]?\s*\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+
+        # German patterns
+        r'MwSt[:\s]*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Mehrwertsteuer[:\s]*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'Steuerbetrag[:\s]*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+        r'USt[:\s]*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})',
+    ]
+
+    # Tax/VAT rate patterns (percentage)
+    TAX_RATE_PATTERNS = [
+        # English patterns
+        r'VAT\s*(?:Rate)?[:\s]*(\d{1,2}(?:[.,]\d{1,2})?)\s*%',
+        r'Tax\s*(?:Rate)?[:\s]*(\d{1,2}(?:[.,]\d{1,2})?)\s*%',
+        r'Sales\s+Tax\s+Rate[:\s]*(\d{1,2}(?:[.,]\d{1,2})?)\s*%',
+        r'GST\s*(?:Rate)?[:\s]*(\d{1,2}(?:[.,]\d{1,2})?)\s*%',
+
+        # German patterns
+        r'MwSt[:\s]*(\d{1,2}(?:[.,]\d{1,2})?)\s*%',
+        r'Mehrwertsteuer[:\s]*(\d{1,2}(?:[.,]\d{1,2})?)\s*%',
+        r'Steuersatz[:\s]*(\d{1,2}(?:[.,]\d{1,2})?)\s*%',
+    ]
+
+    # Tax/VAT ID patterns
+    TAX_ID_PATTERNS = [
+        # English patterns
+        r'VAT\s+(?:Number|No\.?|ID)[:\s]*([A-Z]{2}\s?[A-Z0-9]{8,12})',
+        r'Tax\s+(?:Number|No\.?|ID)[:\s]*([A-Z]{2}\s?[A-Z0-9]{8,12})',
+        r'VAT\s+Registration[:\s]*([A-Z]{2}\s?[A-Z0-9]{8,12})',
+        r'TIN[:\s]*([A-Z0-9\-]{9,15})',
+        r'EIN[:\s]*(\d{2}-\d{7})',  # US Employer Identification Number
+
+        # German patterns
+        r'USt-IdNr[:\s]*([A-Z]{2}\s?[A-Z0-9]{8,12})',
+        r'Steuernummer[:\s]*([A-Z0-9\-/]{10,15})',
+        r'UID[:\s]*([A-Z]{2}\s?[A-Z0-9]{8,12})',
+    ]
+
+    # ========== PAYMENT TERMS PATTERNS - NEW FIELD ==========
+
+    PAYMENT_TERMS_PATTERNS = [
+        # English patterns
+        r'Payment\s+Terms[:\s]*(.*?)(?:\n|$)',
+        r'Terms[:\s]*(Net\s+\d+|Due\s+(?:on\s+receipt|upon\s+receipt)|.*?)(?:\n|$)',
+        r'(Net\s+\d+\s+days?)',
+        r'(Due\s+(?:on|upon)\s+receipt)',
+        r'Payment\s+Conditions[:\s]*(.*?)(?:\n|$)',
+
+        # German patterns
+        r'Zahlungsbedingungen[:\s]*(.*?)(?:\n|$)',
+        r'Zahlungsziel[:\s]*(.*?)(?:\n|$)',
+        r'(Zahlbar\s+innerhalb\s+\d+\s+Tagen?)',
     ]
 
     # ========== POSTAL CODE PATTERNS ==========
@@ -334,6 +560,75 @@ class PatternLibrary:
             return False
 
         return True
+
+    @staticmethod
+    def validate_aba_routing(routing: str) -> bool:
+        """
+        Validate US ABA routing number using checksum algorithm.
+
+        The ABA routing number checksum algorithm:
+        (3*(d1+d4+d7) + 7*(d2+d5+d8) + 1*(d3+d6+d9)) mod 10 = 0
+
+        Args:
+            routing: 9-digit routing number string
+
+        Returns:
+            bool: True if valid checksum, False otherwise
+        """
+        if not routing or len(routing) != 9 or not routing.isdigit():
+            return False
+
+        # Reject obviously invalid numbers
+        if routing == "000000000" or routing == "111111111" or routing == "999999999":
+            return False
+
+        # First two digits must be 01-12 (Federal Reserve district) or 21-32 (Thrift)
+        first_two = int(routing[:2])
+        if not ((1 <= first_two <= 12) or (21 <= first_two <= 32) or (61 <= first_two <= 72) or (80 <= first_two <= 80)):
+            return False
+
+        # Calculate checksum
+        checksum = (
+            3 * (int(routing[0]) + int(routing[3]) + int(routing[6])) +
+            7 * (int(routing[1]) + int(routing[4]) + int(routing[7])) +
+            1 * (int(routing[2]) + int(routing[5]) + int(routing[8]))
+        )
+
+        return checksum % 10 == 0
+
+    @staticmethod
+    def validate_sort_code(sort_code: str) -> bool:
+        """
+        Validate UK sort code format.
+
+        Format: XX-XX-XX or XXXXXX (6 digits)
+        No checksum validation available for sort codes.
+
+        Args:
+            sort_code: Sort code string
+
+        Returns:
+            bool: True if valid format, False otherwise
+        """
+        # Remove hyphens and spaces
+        clean = sort_code.replace('-', '').replace(' ', '')
+
+        # Must be exactly 6 digits
+        return len(clean) == 6 and clean.isdigit()
+
+    @staticmethod
+    def normalize_sort_code(sort_code: str) -> str:
+        """
+        Normalize sort code to XX-XX-XX format.
+
+        Args:
+            sort_code: Sort code string (with or without hyphens)
+
+        Returns:
+            Normalized sort code in XX-XX-XX format
+        """
+        clean = sort_code.replace('-', '').replace(' ', '')
+        return f"{clean[0:2]}-{clean[2:4]}-{clean[4:6]}"
 
     @staticmethod
     def normalize_amount(amount_str: str, currency: str = None, language: str = 'en') -> Dict[str, any]:

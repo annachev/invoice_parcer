@@ -12,7 +12,19 @@
       "Bash(grep:*)",
       "Bash(ls:*)",
       "Bash(pip3 install:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(cd /Users/HannaClock/Desktop/Claude\\\\ Code/invoice_parcer && python test_gui_fixes.py:*)",
+      "Bash(cd /Users/HannaClock/Desktop/Claude\\\\ Code/invoice_parcer && python test_fixes_automated.py:*)",
+      "Bash(cd /Users/HannaClock/Desktop/Claude\\\\ Code/invoice_parcer:*)",
+      "Bash(cd /Users/HannaClock/Desktop/Claude\\\\ Code/invoice_parcer && python tests/test_vehicle_matching.py:*)",
+      "Bash(python -c \"\nfrom src.invoice_processor.utils.vehicle_matcher import VehicleMatcher\nmatcher = VehicleMatcher\\(''vehicles/vehicles.xlsx'', threshold=0.9\\)\nname, vid, score = matcher.match_recipient\\(''Tech Solutions Incorporated''\\)\nprint\\(f''Match: {name}''\\)\nprint\\(f''ID: {vid}''\\)\nprint\\(f''Score: {score:.2%}''\\)\n\")",
+      "Bash(find:*)",
+      "Bash(sort:*)",
+      "Bash(while read dir)",
+      "Bash(do:*)",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(du:*)"
     ]
   }
 }

@@ -14,8 +14,8 @@ app:
 
 # Folder paths (relative to the application directory)
 folders:
-  pending: "invoice_processor/invoices/pending"
-  processed: "invoice_processor/invoices/processed"
+  pending: "invoices/pending"
+  processed: "invoices/processed"
 
 # Background scanner settings
 scanner:
@@ -94,6 +94,21 @@ ml:
 
     # Minimum confidence to accept ML results
     ml_min_confidence: 0.5
+
+# Vehicle fuzzy matching settings
+vehicle_matching:
+  # Enable/disable vehicle database matching
+  enabled: true
+
+  # Path to Excel file with vehicle database
+  excel_path: "vehicles/vehicles.xlsx"
+
+  # Fuzzy match threshold (0.0 - 1.0)
+  # If match score >= threshold, replace recipient with matched name
+  threshold: 0.9
+
+  # Enable caching of vehicle database in memory
+  cache_enabled: true
 
 # Development settings
 development:

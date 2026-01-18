@@ -10,7 +10,8 @@ from typing import Dict, List
 from .pattern_library import PatternLibrary
 from .parser_utils import (
     create_default_result, extract_section, extract_emails_from_text,
-    extract_amount, calculate_confidence, extract_banking_info
+    extract_amount, calculate_confidence, extract_banking_info,
+    extract_invoice_metadata, extract_tax_info
 )
 
 
@@ -183,6 +184,14 @@ class TwoColumnStrategy(BaseStrategy):
         banking_info = extract_banking_info(text, lines)
         result.update(banking_info)
 
+        # Extract invoice metadata (invoice number, dates, payment terms) - v2.2.0
+        metadata = extract_invoice_metadata(text)
+        result.update(metadata)
+
+        # Extract tax/VAT information - v2.2.0
+        tax_info = extract_tax_info(text)
+        result.update(tax_info)
+
         return result
 
 
@@ -243,6 +252,14 @@ class CompanySpecificStrategy(BaseStrategy):
         # Extract banking info using shared function
         banking_info = extract_banking_info(text, lines)
         result.update(banking_info)
+
+        # Extract invoice metadata (invoice number, dates, payment terms) - v2.2.0
+        metadata = extract_invoice_metadata(text)
+        result.update(metadata)
+
+        # Extract tax/VAT information - v2.2.0
+        tax_info = extract_tax_info(text)
+        result.update(tax_info)
 
         return result
 
@@ -339,6 +356,14 @@ class SingleColumnLabelStrategy(BaseStrategy):
         banking_info = extract_banking_info(text, lines)
         result.update(banking_info)
 
+        # Extract invoice metadata (invoice number, dates, payment terms) - v2.2.0
+        metadata = extract_invoice_metadata(text)
+        result.update(metadata)
+
+        # Extract tax/VAT information - v2.2.0
+        tax_info = extract_tax_info(text)
+        result.update(tax_info)
+
         return result
 
 
@@ -415,23 +440,17 @@ class PatternFallbackStrategy(BaseStrategy):
         elif '£' in text or 'GBP' in text:
             result["currency"] = "GBP"
 
-        # Extract banking info
-        # IBAN
-        iban_match = re.search(PatternLibrary.IBAN_PATTERN, text, re.IGNORECASE)
-        if iban_match:
-            result["iban"] = iban_match.group(1).replace(' ', '')
+        # Extract banking info using shared function (includes US/UK support)
+        banking_info = extract_banking_info(text, lines)
+        result.update(banking_info)
 
-        # BIC
-        bic_match = re.search(PatternLibrary.BIC_PATTERN, text, re.IGNORECASE)
-        if bic_match:
-            result["bic"] = bic_match.group(1)
+        # Extract invoice metadata (invoice number, dates, payment terms) - v2.2.0
+        metadata = extract_invoice_metadata(text)
+        result.update(metadata)
 
-        # Bank name
-        for pattern in PatternLibrary.BANK_NAME_PATTERNS:
-            bank_match = re.search(pattern, text)
-            if bank_match:
-                result["bank_name"] = bank_match.group(1).strip()
-                break
+        # Extract tax/VAT information - v2.2.0
+        tax_info = extract_tax_info(text)
+        result.update(tax_info)
 
         return result
 

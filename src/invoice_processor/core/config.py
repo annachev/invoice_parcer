@@ -136,6 +136,15 @@ class MLConfig:
 
 
 @dataclass
+class VehicleMatchingConfig:
+    """Vehicle fuzzy matching configuration"""
+    enabled: bool = True
+    excel_path: str = "vehicles/vehicles.xlsx"
+    threshold: float = 0.9
+    cache_enabled: bool = True
+
+
+@dataclass
 class Config:
     """Main application configuration"""
     window: WindowConfig
@@ -146,6 +155,7 @@ class Config:
     threading: ThreadingConfig
     development: DevelopmentConfig
     ml: MLConfig
+    vehicle_matching: VehicleMatchingConfig
 
     @classmethod
     def from_file(cls, config_path: str = "config.yaml") -> 'Config':
@@ -192,7 +202,8 @@ class Config:
                     ner=NERConfig(**ml_data.get('ner', {})),
                     layout=LayoutConfig(**ml_data.get('layout', {})),
                     ensemble=EnsembleConfig(**ml_data.get('ensemble', {}))
-                )
+                ),
+                vehicle_matching=VehicleMatchingConfig(**data.get('vehicle_matching', {}))
             )
 
         except yaml.YAMLError as e:
@@ -212,15 +223,16 @@ class Config:
         return cls(
             window=WindowConfig(),
             folders=FolderConfig(
-                pending=Path("invoice_processor/invoices/pending"),
-                processed=Path("invoice_processor/invoices/processed")
+                pending=Path("invoices/pending"),
+                processed=Path("invoices/processed")
             ),
             scanner=ScannerConfig(),
             logging=LoggingConfig(),
             parser=ParserConfig(),
             threading=ThreadingConfig(),
             development=DevelopmentConfig(),
-            ml=MLConfig()
+            ml=MLConfig(),
+            vehicle_matching=VehicleMatchingConfig()
         )
 
     def validate(self):
