@@ -70,8 +70,9 @@ env/
 *_old.py
 
 # Project specific
-invoice_processor/test_invoices/*.pdf
-invoice_processor/invoices/pending/*.pdf
-invoice_processor/invoices/processed/*.pdf
-!invoice_processor/invoices/pending/.gitkeep
-!invoice_processor/invoices/processed/.gitkeep
+test_invoices/*.pdf
+invoices/pending/*.pdf
+invoices/processed/*.pdf
+!invoices/pending/.gitkeep
+!invoices/processed/.gitkeep
+vehicles/*.xlsx
