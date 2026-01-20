@@ -1,207 +1,19 @@
 #!/usr/bin/env python3
 """
-Parser Utility Functions
-Shared helper functions used across parsing strategies.
+Data Extraction Utilities
+
+Complex extraction logic for banking info, metadata, amounts, and confidence scoring.
+These utilities handle the core data extraction operations for invoice parsing.
 """
 
 import re
 from typing import List, Dict, Optional
+
 from .pattern_library import PatternLibrary
 from ..core.constants import PARSING_FAILED
-
-
-def normalize_text(text: str) -> List[str]:
-    """
-    Normalize text by cleaning whitespace and splitting into lines.
-
-    Args:
-        text: Raw text from PDF
-
-    Returns:
-        List of normalized text lines
-    """
-    # Remove null characters that sometimes appear in PDFs
-    text = text.replace('\x00', ' ')
-
-    # Replace multiple spaces with single space
-    text = re.sub(r' +', ' ', text)
-
-    # Split into lines
-    lines = text.split('\n')
-
-    # Strip whitespace from each line
-    lines = [line.strip() for line in lines]
-
-    return lines
-
-
-def extract_email(line: str) -> Optional[str]:
-    """
-    Extract email address from a line with validation.
-
-    Args:
-        line: Text line potentially containing email
-
-    Returns:
-        Email address if found and valid, None otherwise
-    """
-    match = re.search(PatternLibrary.EMAIL_PATTERN, line)
-    if match:
-        email = match.group(0)
-        # Basic validation: has @ and domain
-        if '@' in email and '.' in email.split('@')[1]:
-            return email
-    return None
-
-
-def is_valid_email(email: str) -> bool:
-    """
-    Validate email format.
-
-    Args:
-        email: Email string to validate
-
-    Returns:
-        True if email has valid format, False otherwise
-    """
-    if not email or email == PARSING_FAILED:
-        return False
-
-    # Basic validation: has @ and domain with dot
-    if '@' not in email:
-        return False
-
-    parts = email.split('@')
-    if len(parts) != 2:
-        return False
-
-    local, domain = parts
-    # Local part should be non-empty
-    if not local or len(local) < 1:
-        return False
-
-    # Domain should have at least one dot
-    if '.' not in domain:
-        return False
-
-    # Domain should have non-empty parts
-    domain_parts = domain.split('.')
-    if any(len(part) == 0 for part in domain_parts):
-        return False
-
-    return True
-
-
-def extract_emails_from_text(text: str) -> tuple:
-    """
-    Extract sender and recipient emails from text using heuristics.
-
-    Args:
-        text: Full invoice text
-
-    Returns:
-        Tuple of (sender_email, recipient_email)
-    """
-    emails = PatternLibrary.extract_emails(text)
-
-    sender_email = None
-    recipient_email = None
-
-    for email in emails:
-        if PatternLibrary.is_sender_email(email):
-            if not sender_email:  # Take first sender email
-                sender_email = email
-        else:
-            if not recipient_email:  # Take first recipient email
-                recipient_email = email
-
-    return (sender_email, recipient_email)
-
-
-def is_address_line(line: str) -> bool:
-    """
-    Determine if a line contains address information.
-
-    Args:
-        line: Text line to check
-
-    Returns:
-        True if line appears to be part of an address
-    """
-    if not line or len(line) < 3:
-        return False
-
-    # Check for postal code
-    for pattern in PatternLibrary.POSTAL_CODE_PATTERNS.values():
-        if re.search(pattern, line):
-            return True
-
-    # Check for street patterns
-    for pattern in PatternLibrary.STREET_PATTERNS:
-        if re.search(pattern, line):
-            return True
-
-    # Check for country names
-    if PatternLibrary.contains_country(line):
-        return True
-
-    # Check for city names (capitalized words with optional state/region)
-    # Example: "San Francisco, California"
-    if re.search(r'[A-Z][a-z]+(?:,?\s+[A-Z][a-z]+)*', line):
-        # Avoid false positives on labels
-        if not re.search(r':\s*$', line) and not line.endswith(':'):
-            return True
-
-    return False
-
-
-def is_section_boundary(line: str) -> bool:
-    """
-    Check if line marks a section boundary (indicates end of address block).
-
-    Args:
-        line: Text line to check
-
-    Returns:
-        True if line marks a boundary
-    """
-    # Check for common section headers
-    boundary_keywords = [
-        'invoice', 'description', 'item', 'quantity', 'price',
-        'amount', 'total', 'subtotal', 'tax', 'vat', 'mwst',
-        'payment', 'due', 'date', 'number', 'reference'
-    ]
-
-    line_lower = line.lower()
-
-    # Check if line is a header (ends with colon or is all caps)
-    if line.endswith(':') or (line.isupper() and len(line) > 3):
-        return True
-
-    # Check for boundary keywords
-    for keyword in boundary_keywords:
-        if keyword in line_lower:
-            return True
-
-    # Check for horizontal rules
-    if re.search(r'^[-=_]{3,}$', line):
-        return True
-
-    return False
-
-
-def find_postal_codes(text: str) -> List[str]:
-    """
-    Extract all postal codes from text.
-
-    Args:
-        text: Text to search
-
-    Returns:
-        List of postal codes found
-    """
-    postal_codes = PatternLibrary.extract_postal_codes(text)
-    return [code for code, country in postal_codes]
+from .email_utils import is_valid_email, extract_email
+from .address_utils import is_address_line, is_section_boundary
+from .text_utils import extract_pattern
 
 
 def extract_amount(text: str, patterns: List[str] = None) -> Optional[str]:
@@ -458,23 +270,6 @@ def extract_name_from_line(line: str) -> Optional[str]:
     return line
 
 
-def extract_pattern(text: str, pattern: str) -> Optional[str]:
-    """
-    Extract first match of pattern from text.
-
-    Args:
-        text: Text to search
-        pattern: Regex pattern (should have one capture group)
-
-    Returns:
-        Captured string or None if not found
-    """
-    match = re.search(pattern, text, re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
-    return None
-
-
 def detect_payment_method(banking_info: dict) -> str:
     """
     Automatically detect payment method from banking fields.
@@ -576,18 +371,66 @@ def extract_banking_info(text: str, lines: List[str]) -> Dict[str, str]:
         "payment_method": PARSING_FAILED,
     }
 
-    # --- European Banking (IBAN/BIC) ---
-    # Try labeled IBAN first (higher confidence)
-    iban = extract_pattern(text, PatternLibrary.IBAN_PATTERN_LABELED)
+    # --- European Banking (IBAN/BIC) - NEW: Body/Footer Heuristic (Gemini Tier 2) ---
+
+    # Split text into body (first 85%) and footer (last 15%)
+    text_len = len(text)
+    body_cutoff = int(text_len * 0.85)
+    text_body = text[:body_cutoff]
+    text_footer = text[body_cutoff:]
+
+    iban = None
+    iban_source = None  # Track where IBAN was found (for debugging/logging)
+
+    # Step 1: Try body with proximity keywords (highest confidence)
+    for lang in ['en', 'de']:
+        for proximity_pattern in PatternLibrary.IBAN_PROXIMITY_KEYWORDS[lang]:
+            # Search for proximity keyword + IBAN pattern
+            proximity_match = re.search(proximity_pattern, text_body, re.IGNORECASE)
+            if proximity_match:
+                # Search for IBAN near the proximity keyword (within 200 chars)
+                start_pos = proximity_match.start()
+                context = text_body[start_pos:start_pos + 200]
+
+                # Try labeled IBAN in context
+                iban = extract_pattern(context, PatternLibrary.IBAN_PATTERN_LABELED)
+                if not iban:
+                    # Try unlabeled IBAN in context
+                    iban = extract_pattern(context, PatternLibrary.IBAN_PATTERN_UNLABELED)
+
+                if iban:
+                    iban_source = "body_proximity"
+                    break
+        if iban:
+            break
+
+    # Step 2: Fallback to body-wide search (labeled only for safety)
     if not iban:
-        # Fallback to unlabeled IBAN (user requested this feature)
+        iban = extract_pattern(text_body, PatternLibrary.IBAN_PATTERN_LABELED)
+        if iban:
+            iban_source = "body_labeled"
+
+    # Step 3: Fallback to footer search (last resort - might be corporate HQ)
+    if not iban:
+        iban = extract_pattern(text_footer, PatternLibrary.IBAN_PATTERN_LABELED)
+        if not iban:
+            iban = extract_pattern(text_footer, PatternLibrary.IBAN_PATTERN_UNLABELED)
+        if iban:
+            iban_source = "footer"
+
+    # Step 4: Final fallback to full text unlabeled (original behavior)
+    if not iban:
         iban = extract_pattern(text, PatternLibrary.IBAN_PATTERN_UNLABELED)
+        if iban:
+            iban_source = "full_text_unlabeled"
 
     # CRITICAL: Always validate IBAN checksum (strict per user requirement)
     if iban:
         iban_clean = iban.replace(' ', '')
         if PatternLibrary.validate_iban(iban_clean):
             banking["iban"] = iban_clean
+            # Optional: Could add iban_confidence field based on iban_source
+            # banking["iban_source"] = iban_source
 
     # Extract BIC/SWIFT
     bic = extract_pattern(text, PatternLibrary.BIC_PATTERN)
@@ -658,12 +501,15 @@ def extract_banking_info(text: str, lines: List[str]) -> Dict[str, str]:
     return banking
 
 
-def extract_invoice_metadata(text: str) -> Dict[str, str]:
+def extract_invoice_metadata(text: str, sender: str = None) -> Dict[str, str]:
     """
     Extract invoice metadata fields (invoice number, dates, payment terms).
 
+    NEW (Gemini Tier 1): Smart payment reference priority and due date calculation.
+
     Args:
         text: Full invoice text
+        sender: Optional sender name (for payment reference priority logic)
 
     Returns:
         Dictionary with invoice_number, invoice_date, due_date, payment_terms
@@ -675,14 +521,21 @@ def extract_invoice_metadata(text: str) -> Dict[str, str]:
         "payment_terms": PARSING_FAILED,
     }
 
-    # --- Invoice Number ---
-    for pattern in PatternLibrary.INVOICE_NUMBER_PATTERNS:
-        invoice_num = extract_pattern(text, pattern)
+    # --- Invoice Number (NEW: Priority Logic) ---
+    if sender:
+        # Use smart priority logic (Gemini Tier 1)
+        invoice_num = extract_payment_reference_priority(text, sender)
         if invoice_num:
-            # Basic validation: should be alphanumeric with possible separators
-            if re.match(r'^[A-Z0-9\-/]+$', invoice_num, re.IGNORECASE):
-                metadata["invoice_number"] = invoice_num
-                break
+            metadata["invoice_number"] = invoice_num
+    else:
+        # Fallback to original logic if sender not provided
+        for pattern in PatternLibrary.INVOICE_NUMBER_PATTERNS:
+            invoice_num = extract_pattern(text, pattern)
+            if invoice_num:
+                # Basic validation: should be alphanumeric with possible separators
+                if re.match(r'^[A-Z0-9\-/]+$', invoice_num, re.IGNORECASE):
+                    metadata["invoice_number"] = invoice_num
+                    break
 
     # --- Invoice Date ---
     for pattern in PatternLibrary.INVOICE_DATE_PATTERNS:
@@ -693,14 +546,40 @@ def extract_invoice_metadata(text: str) -> Dict[str, str]:
                 metadata["invoice_date"] = invoice_date
                 break
 
-    # --- Due Date ---
-    for pattern in PatternLibrary.DUE_DATE_PATTERNS:
-        due_date = extract_pattern(text, pattern)
+    # --- Due Date (NEW: Smart Calculation) ---
+    # Try smart calculation with relative offsets and immediate payment (Gemini Tier 1)
+    if metadata["invoice_date"] != PARSING_FAILED:
+        due_date = calculate_due_date(text, metadata["invoice_date"])
         if due_date:
-            # Basic validation: should match date format
-            if re.match(r'\d{2,4}[-/.]\d{2}[-/.]\d{2,4}', due_date):
-                metadata["due_date"] = due_date
-                break
+            metadata["due_date"] = due_date
+
+    # Fallback to explicit due date extraction if calculation didn't work
+    if metadata["due_date"] == PARSING_FAILED:
+        from datetime import datetime
+        for pattern in PatternLibrary.DUE_DATE_PATTERNS:
+            due_date = extract_pattern(text, pattern)
+            if due_date:
+                # Basic validation: should match date format
+                if re.match(r'\d{2,4}[-/.]\d{2}[-/.]\d{2,4}', due_date):
+                    # Normalize to ISO format for consistency
+                    try:
+                        for fmt in ['%Y-%m-%d', '%Y/%m/%d', '%d-%m-%Y', '%d/%m/%Y', '%d.%m.%Y', '%m/%d/%Y']:
+                            try:
+                                due_dt = datetime.strptime(due_date, fmt)
+                                metadata["due_date"] = due_dt.strftime('%Y-%m-%d')
+                                break
+                            except ValueError:
+                                continue
+                        # If normalization succeeded, break
+                        if metadata["due_date"] != PARSING_FAILED:
+                            break
+                        # If can't normalize, use as-is
+                        metadata["due_date"] = due_date
+                        break
+                    except:
+                        # If any error, use as-is
+                        metadata["due_date"] = due_date
+                        break
 
     # --- Payment Terms ---
     for pattern in PatternLibrary.PAYMENT_TERMS_PATTERNS:
@@ -829,56 +708,165 @@ def extract_section(lines: List[str], start_idx: int, end_idx: int = None) -> Di
     }
 
 
-if __name__ == "__main__":
-    # Test text normalization
-    text = "Line 1\n  Line 2   with    spaces\nLine 3"
-    lines = normalize_text(text)
-    print("Normalized lines:", lines)
+# ========== NEW GEMINI FEATURES ==========
 
-    # Test email extraction
-    test_line = "Contact: support@company.com for help"
-    email = extract_email(test_line)
-    print(f"\nEmail from line: {email}")
 
-    # Test address detection
-    addr_lines = [
-        "123 Main Street",
-        "San Francisco, California 94104",
-        "Invoice Date:",
-        "Product Description"
-    ]
-    for line in addr_lines:
-        print(f"{line}: {'Address' if is_address_line(line) else 'Not Address'}")
+def is_regulatory_authority(sender: str) -> bool:
+    """
+    Check if sender is a regulatory/public sector authority.
 
-    # Test confidence scoring
-    result1 = {
-        "sender": "Acme Corp",
-        "recipient": "John Doe",
-        "amount": "100.00",
-        "currency": "USD",
-        "sender_address": "123 Main St",
-        "recipient_address": "456 Oak Ave",
-        "sender_email": "billing@acme.com",
-        "recipient_email": "john@example.com",
-        "iban": "PARSING FAILED",
-        "bic": "PARSING FAILED",
-        "bank_name": "PARSING FAILED",
-        "payment_address": "PARSING FAILED",
-    }
-    print(f"\nConfidence score (complete): {calculate_confidence(result1):.2f}")
+    Args:
+        sender: Sender name/company string
 
-    result2 = {
-        "sender": "Acme Corp",
-        "recipient": "PARSING FAILED",
-        "amount": "100.00",
-        "currency": "USD",
-        "sender_address": "PARSING FAILED",
-        "recipient_address": "PARSING FAILED",
-        "sender_email": "PARSING FAILED",
-        "recipient_email": "PARSING FAILED",
-        "iban": "PARSING FAILED",
-        "bic": "PARSING FAILED",
-        "bank_name": "PARSING FAILED",
-        "payment_address": "PARSING FAILED",
-    }
-    print(f"Confidence score (partial): {calculate_confidence(result2):.2f}")
+    Returns:
+        True if sender contains authority keywords
+    """
+    if not sender or sender == PARSING_FAILED:
+        return False
+
+    sender_lower = sender.lower()
+
+    # Check German authority keywords
+    for keyword in PatternLibrary.AUTHORITY_KEYWORDS['de']:
+        if keyword.lower() in sender_lower:
+            return True
+
+    # Check English authority keywords
+    for keyword in PatternLibrary.AUTHORITY_KEYWORDS['en']:
+        if keyword.lower() in sender_lower:
+            return True
+
+    return False
+
+
+def extract_payment_reference_priority(text: str, sender: str) -> Optional[str]:
+    """
+    Extract payment reference with priority logic for different invoice types.
+
+    Priority order (Gemini Tier 1 - MECE Routing):
+    1. Regulatory/Public Sector: Kassenzeichen, Aktenzeichen, Case Reference
+    2. Corporate Concatenation: Invoice# / Debtor# when "Bei Zahlung angeben" present
+    3. Standard: Invoice number
+
+    Args:
+        text: Full invoice text
+        sender: Sender name (used to detect regulatory authority)
+
+    Returns:
+        Payment reference string or None
+    """
+    # Priority 1: Check if sender is regulatory authority
+    if is_regulatory_authority(sender):
+        # Try regulatory reference patterns first
+        for pattern in PatternLibrary.REGULATORY_REFERENCE_PATTERNS:
+            ref = extract_pattern(text, pattern)
+            if ref:
+                return ref  # Ignore invoice number for government invoices
+
+    # Priority 2: Check for concatenation instruction
+    if re.search(r'Bei\s+Zahlung\s+angeben|Quote\s+on\s+payment', text, re.IGNORECASE):
+        # Try to extract both invoice number and debtor/customer number
+        invoice_num = None
+        for pattern in PatternLibrary.INVOICE_NUMBER_PATTERNS:
+            invoice_num = extract_pattern(text, pattern)
+            if invoice_num:
+                break
+
+        debtor_num = None
+        for pattern in PatternLibrary.DEBTOR_NUMBER_PATTERNS:
+            debtor_num = extract_pattern(text, pattern)
+            if debtor_num:
+                break
+
+        # If both found, concatenate them
+        if invoice_num and debtor_num:
+            return f"{invoice_num} / {debtor_num}"
+
+    # Priority 3: Standard invoice number (fallback)
+    for pattern in PatternLibrary.INVOICE_NUMBER_PATTERNS:
+        invoice_num = extract_pattern(text, pattern)
+        if invoice_num:
+            # Basic validation: should be alphanumeric with possible separators
+            if re.match(r'^[A-Z0-9\-/]+$', invoice_num, re.IGNORECASE):
+                return invoice_num
+
+    return None
+
+
+def calculate_due_date(text: str, issue_date: str) -> Optional[str]:
+    """
+    Calculate due date from invoice date using multiple patterns.
+
+    Pattern priority (Gemini Tier 1 - Due Date Offset Logic):
+    A. Relative offset (e.g., "Net 30", "within 14 days") → Calculate from issue_date
+    B. Immediate (e.g., "due on receipt") → Return issue_date
+    C. Explicit date (e.g., "2024-12-31") → Extract directly
+
+    Args:
+        text: Full invoice text
+        issue_date: Invoice issue date string
+
+    Returns:
+        Due date string (ISO format YYYY-MM-DD) or None
+    """
+    # Import datetime here to avoid circular dependencies
+    from datetime import datetime, timedelta
+
+    # Pattern A: Relative offset
+    for pattern in PatternLibrary.RELATIVE_DUE_DATE_PATTERNS:
+        match = extract_pattern(text, pattern)
+        if match:
+            try:
+                offset = int(match)
+                # Parse issue date (try multiple formats)
+                issue_dt = None
+                for fmt in ['%Y-%m-%d', '%Y/%m/%d', '%d-%m-%Y', '%d/%m/%Y', '%d.%m.%Y', '%m/%d/%Y']:
+                    try:
+                        issue_dt = datetime.strptime(issue_date, fmt)
+                        break
+                    except ValueError:
+                        continue
+
+                if issue_dt:
+                    due_dt = issue_dt + timedelta(days=offset)
+                    return due_dt.strftime('%Y-%m-%d')
+            except (ValueError, AttributeError):
+                continue
+
+    # Pattern B: Immediate payment
+    for pattern in PatternLibrary.IMMEDIATE_PAYMENT_PATTERNS:
+        if re.search(pattern, text, re.IGNORECASE):
+            # Due date = invoice date
+            # Normalize to ISO format if possible
+            try:
+                for fmt in ['%Y-%m-%d', '%Y/%m/%d', '%d-%m-%Y', '%d/%m/%Y', '%d.%m.%Y', '%m/%d/%Y']:
+                    try:
+                        issue_dt = datetime.strptime(issue_date, fmt)
+                        return issue_dt.strftime('%Y-%m-%d')
+                    except ValueError:
+                        continue
+                # If can't parse, return as-is
+                return issue_date
+            except:
+                return issue_date
+
+    # Pattern C: Explicit date (existing logic)
+    for pattern in PatternLibrary.DUE_DATE_PATTERNS:
+        due_date = extract_pattern(text, pattern)
+        if due_date:
+            # Basic validation: should match date format
+            if re.match(r'\d{2,4}[-/.]\d{2}[-/.]\d{2,4}', due_date):
+                # Try to normalize to ISO format
+                try:
+                    for fmt in ['%Y-%m-%d', '%Y/%m/%d', '%d-%m-%Y', '%d/%m/%Y', '%d.%m.%Y', '%m/%d/%Y']:
+                        try:
+                            due_dt = datetime.strptime(due_date, fmt)
+                            return due_dt.strftime('%Y-%m-%d')
+                        except ValueError:
+                            continue
+                    # If can't parse, return as-is
+                    return due_date
+                except:
+                    return due_date
+
+    return None

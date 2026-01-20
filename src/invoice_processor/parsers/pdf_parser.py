@@ -10,7 +10,8 @@ from pathlib import Path
 
 from ..core.logging_config import get_logger
 from ..core.config import get_config
-from .parser_utils import normalize_text, calculate_confidence, create_default_result
+from .text_utils import normalize_text
+from .extraction_utils import calculate_confidence, create_default_result
 from .parsing_strategies import (
     TwoColumnStrategy,
     SingleColumnLabelStrategy,

@@ -24,7 +24,15 @@
       "Bash(do:*)",
       "Bash(echo:*)",
       "Bash(done)",
-      "Bash(du:*)"
+      "Bash(du:*)",
+      "Bash(python -c \"from src.invoice_processor.parsers.email_utils import extract_email, is_valid_email, extract_emails_from_text; print\\(''✓ email_utils.py imports successfully''\\)\")",
+      "Bash(python -c \"from src.invoice_processor.parsers.address_utils import is_address_line, is_section_boundary, find_postal_codes; print\\(''✓ address_utils.py imports successfully''\\)\")",
+      "Bash(python -c \"from src.invoice_processor.parsers.extraction_utils import calculate_confidence, create_default_result, extract_banking_info; print\\(''✓ extraction_utils.py imports successfully''\\)\")",
+      "Bash(pytest tests/ -v --tb=short)",
+      "Bash(pytest tests/test_flexible_patterns.py tests/test_international_banking.py tests/test_vehicle_matching.py -v)",
+      "Bash(cd /Users/HannaClock/Desktop/Claude\\\\ Code/invoice_parcer && pytest tests/test_refactored_parser.py -v:*)",
+      "Bash(pytest tests/test_flexible_patterns.py tests/test_international_banking.py -v)",
+      "Bash(pytest tests/test_flexible_patterns.py::test_due_date_extraction -v)"
     ]
   }
 }

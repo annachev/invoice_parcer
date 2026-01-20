@@ -10,12 +10,12 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
 from invoice_processor.parsers.pattern_library import PatternLibrary
-from invoice_processor.parsers.parser_utils import (
+from invoice_processor.parsers.extraction_utils import (
     extract_banking_info,
     detect_payment_method,
-    extract_account_number_smart,
-    PARSING_FAILED
+    extract_account_number_smart
 )
+from invoice_processor.core.constants import PARSING_FAILED
 
 
 def test_aba_routing_validation():

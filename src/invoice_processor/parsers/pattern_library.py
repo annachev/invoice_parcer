@@ -82,6 +82,26 @@ class PatternLibrary:
     BIC_PATTERN = r'BIC[:\s]*([A-Z]{6}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)'
     SWIFT_PATTERN = r'SWIFT[:\s]*([A-Z]{6}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)'
 
+    # ========== IBAN PROXIMITY KEYWORDS - NEW (Gemini Tier 2) ==========
+
+    # Keywords indicating payment IBAN (body context) vs corporate HQ IBAN (footer context)
+    IBAN_PROXIMITY_KEYWORDS = {
+        'en': [
+            r'(?:transfer|remit|payment|pay)\s+to',
+            r'bank\s+(?:account|details)',
+            r'payment\s+(?:account|details)',
+            r'(?:our|recipient)\s+(?:bank|account)',
+            r'account\s+for\s+payment',
+        ],
+        'de': [
+            r'Überweisung\s+auf',
+            r'Bankverbindung',
+            r'Zahlung\s+an',
+            r'(?:unsere|Empfänger)\s+(?:Bank|Konto)',
+            r'Zahlungskonto',
+        ]
+    }
+
     # ========== US BANKING PATTERNS ==========
 
     # US ABA/ACH Routing Numbers (9 digits with checksum validation)
@@ -190,6 +210,42 @@ class PatternLibrary:
         r'Rechnung\s+Nr\.?[:\s]*([A-Z0-9\-/]+)',
         r'Beleg(?:nummer)?[:\s]*([A-Z0-9\-/]+)',
         r'Dokumentennummer[:\s]*([A-Z0-9\-/]+)',
+    ]
+
+    # ========== REGULATORY/PUBLIC SECTOR REFERENCE PATTERNS - NEW (Gemini Tier 1) ==========
+
+    # Authority keywords for detecting regulatory/public sector invoices
+    AUTHORITY_KEYWORDS = {
+        'de': ['Justiz', 'Bundeskasse', 'Amtsgericht', 'Hauptzollamt', 'Stadtkasse',
+               'Finanzamt', 'Landgericht', 'Verwaltungsgericht', 'Sozialgericht'],
+        'en': ['Court', 'Treasury', 'Companies House', 'Tax Authority', 'Office',
+               'Department', 'Agency', 'Commission', 'Bureau', 'Registry']
+    }
+
+    # Regulatory reference patterns (take priority over invoice numbers for government invoices)
+    REGULATORY_REFERENCE_PATTERNS = [
+        # German patterns
+        r'Kassenzeichen[:\s]*([A-Z0-9\-/]+)',
+        r'Aktenzeichen[:\s]*([A-Z0-9\-/]+)',
+        r'Geschäftszeichen[:\s]*([A-Z0-9\-/]+)',
+        r'Az\.?[:\s]*([A-Z0-9\-/]+)',
+        r'Kz\.?[:\s]*([A-Z0-9\-/]+)',
+
+        # English patterns
+        r'Case\s+Reference[:\s]*([A-Z0-9\-/]+)',
+        r'Case\s+(?:Number|No\.?|#)[:\s]*([A-Z0-9\-/]+)',
+        r'Notice\s+(?:Number|No\.?|#)[:\s]*([A-Z0-9\-/]+)',
+        r'File\s+(?:Number|No\.?|#)[:\s]*([A-Z0-9\-/]+)',
+        r'Assessment\s+(?:Number|No\.?|#)[:\s]*([A-Z0-9\-/]+)',
+    ]
+
+    # Debtor/Customer number patterns (for concatenation when "Bei Zahlung angeben" present)
+    DEBTOR_NUMBER_PATTERNS = [
+        r'(?:Debtor|Debitor)\s+(?:Number|No\.?|#|Nr\.?)[:\s]*([A-Z0-9\-/]+)',
+        r'(?:Customer|Kunde)\s+(?:Number|No\.?|#|Nr\.?)[:\s]*([A-Z0-9\-/]+)',
+        r'(?:Client|Mandant)\s+(?:Number|No\.?|#|Nr\.?)[:\s]*([A-Z0-9\-/]+)',
+        r'Kundennummer[:\s]*([A-Z0-9\-/]+)',
+        r'Debitorennummer[:\s]*([A-Z0-9\-/]+)',
     ]
 
     # ========== DATE PATTERNS - NEW FIELDS ==========
@@ -313,6 +369,40 @@ class PatternLibrary:
         r'Zahlungsbedingungen[:\s]*(.*?)(?:\n|$)',
         r'Zahlungsziel[:\s]*(.*?)(?:\n|$)',
         r'(Zahlbar\s+innerhalb\s+\d+\s+Tagen?)',
+    ]
+
+    # ========== RELATIVE DUE DATE PATTERNS - NEW (Gemini Tier 1) ==========
+
+    # Patterns for relative offset (e.g., "Net 30", "within 14 days")
+    RELATIVE_DUE_DATE_PATTERNS = [
+        # English patterns
+        r'(?:within|in)\s+(\d+)\s+days?',
+        r'(?:net|Net)\s+(\d+)',
+        r'(\d+)\s+days?\s+(?:from|after)\s+invoice',
+        r'payment\s+(?:within|in)\s+(\d+)\s+days?',
+
+        # German patterns
+        r'innerhalb\s+(?:von\s+)?(\d+)\s+Tagen?',
+        r'fällig\s+in\s+(\d+)\s+Tagen?',
+        r'(\d+)\s+Tage\s+nach\s+Rechnungsdatum',
+        r'Zahlbar\s+innerhalb\s+(\d+)\s+Tagen?',
+    ]
+
+    # Patterns for immediate payment (due date = invoice date)
+    IMMEDIATE_PAYMENT_PATTERNS = [
+        # English patterns
+        r'due\s+(?:on|upon)\s+receipt',
+        r'payable\s+(?:on|upon)\s+receipt',
+        r'immediately',
+        r'due\s+immediately',
+        r'payment\s+on\s+receipt',
+
+        # German patterns
+        r'sofort',
+        r'fällig\s+nach\s+Erhalt',
+        r'zahlbar\s+sofort',
+        r'bei\s+Erhalt',
+        r'sofort\s+fällig',
     ]
 
     # ========== POSTAL CODE PATTERNS ==========

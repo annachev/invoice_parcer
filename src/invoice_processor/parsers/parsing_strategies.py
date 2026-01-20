@@ -8,8 +8,9 @@ import re
 from abc import ABC, abstractmethod
 from typing import Dict, List
 from .pattern_library import PatternLibrary
-from .parser_utils import (
-    create_default_result, extract_section, extract_emails_from_text,
+from .email_utils import extract_emails_from_text
+from .extraction_utils import (
+    create_default_result, extract_section,
     extract_amount, calculate_confidence, extract_banking_info,
     extract_invoice_metadata, extract_tax_info
 )
@@ -185,7 +186,7 @@ class TwoColumnStrategy(BaseStrategy):
         result.update(banking_info)
 
         # Extract invoice metadata (invoice number, dates, payment terms) - v2.2.0
-        metadata = extract_invoice_metadata(text)
+        metadata = extract_invoice_metadata(text, result.get('sender'))
         result.update(metadata)
 
         # Extract tax/VAT information - v2.2.0
@@ -254,7 +255,7 @@ class CompanySpecificStrategy(BaseStrategy):
         result.update(banking_info)
 
         # Extract invoice metadata (invoice number, dates, payment terms) - v2.2.0
-        metadata = extract_invoice_metadata(text)
+        metadata = extract_invoice_metadata(text, result.get('sender'))
         result.update(metadata)
 
         # Extract tax/VAT information - v2.2.0
@@ -357,7 +358,7 @@ class SingleColumnLabelStrategy(BaseStrategy):
         result.update(banking_info)
 
         # Extract invoice metadata (invoice number, dates, payment terms) - v2.2.0
-        metadata = extract_invoice_metadata(text)
+        metadata = extract_invoice_metadata(text, result.get('sender'))
         result.update(metadata)
 
         # Extract tax/VAT information - v2.2.0
@@ -445,7 +446,7 @@ class PatternFallbackStrategy(BaseStrategy):
         result.update(banking_info)
 
         # Extract invoice metadata (invoice number, dates, payment terms) - v2.2.0
-        metadata = extract_invoice_metadata(text)
+        metadata = extract_invoice_metadata(text, result.get('sender'))
         result.update(metadata)
 
         # Extract tax/VAT information - v2.2.0

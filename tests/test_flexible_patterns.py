@@ -13,11 +13,11 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-from invoice_processor.parsers.parser_utils import (
+from invoice_processor.parsers.extraction_utils import (
     extract_invoice_metadata,
-    extract_tax_info,
-    PARSING_FAILED
+    extract_tax_info
 )
+from invoice_processor.core.constants import PARSING_FAILED
 
 
 def test_flexible_sender_patterns():
@@ -114,16 +114,19 @@ def test_invoice_date_extraction():
 
 
 def test_due_date_extraction():
-    """Test due date extraction with various labels."""
+    """Test due date extraction with various labels.
+
+    NOTE: New Gemini feature normalizes dates to ISO format (YYYY-MM-DD) for consistency.
+    """
     print("\n=== Testing Due Date Extraction ===")
 
     test_cases = [
         ("Due Date: 2024-02-15", "2024-02-15"),
-        ("Payment Due: 02/15/2024", "02/15/2024"),
-        ("Pay by: 15.02.2024", "15.02.2024"),
+        ("Payment Due: 02/15/2024", "2024-02-15"),  # Normalized to ISO
+        ("Pay by: 15.02.2024", "2024-02-15"),  # Normalized to ISO
         ("Payable by: 2024-02-15", "2024-02-15"),
-        ("Due on: 15/02/2024", "15/02/2024"),
-        ("Fälligkeitsdatum: 15.02.2024", "15.02.2024"),  # German
+        ("Due on: 15/02/2024", "2024-02-15"),  # Normalized to ISO
+        ("Fälligkeitsdatum: 15.02.2024", "2024-02-15"),  # German, normalized to ISO
     ]
 
     for text, expected in test_cases:

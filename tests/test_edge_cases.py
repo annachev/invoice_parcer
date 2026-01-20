@@ -5,7 +5,11 @@ import os
 import sys
 import time
 from pathlib import Path
-from file_manager import FileManager
+
+# Add src to path for imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+
+from invoice_processor.core.file_manager import FileManager
 
 
 def test_txt_file_in_pending():
